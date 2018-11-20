@@ -7,10 +7,8 @@ namespace SmileyBot.ApplicationCore.Enums
 	Centering,
 	Shadowing,
 	Shooting,
-	Waiting,
 	Flying,
 	Defending,
-	Flipping,
 	Dribbling
     }
 }

@@ -42,11 +42,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Bots\WrapBot.cs" />
     <Compile Include="Services\BallChasingService.cs" />
     <Compile Include="Services\ControlService.cs" />
     <Compile Include="Services\KickoffService.cs" />
     <Compile Include="Services\FieldService.cs" />
+    <Compile Include="Services\StateService.cs" />
     <Compile Include="Enums\BotState.cs" />
+    <Compile Include="Enums\BotAction.cs" />
     <Compile Include="Models\Vec3.cs" />
   </ItemGroup>
   <ItemGroup>
