@@ -33,6 +33,9 @@ namespace SmileyBot.Console.Bots
 		case BotAction.TurningAround:
 		    TurnAroud();
 		    break;
+		case BotAction.Aerial:
+		    Aerial();
+		    break;
 	    }
 	}
 

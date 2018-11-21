@@ -146,6 +146,25 @@ namespace SmileyBot.ApplicationCore.Bots
 	    return shouldSwitch;
 	}
 
+	public void Aerial()
+	{
+	    //System.Console.WriteLine("Aerial");
+	    var ballLocation = VectorMapper.Map(Ball.Physics.Value.Location.Value);
+	    Action = BotAction.Aerial;
+	    Controller.Jump = true;
+	    Controller.Boost = true;
+	    Controller.Steer = Field.GetSteeringValueToward(MyInfo, ballLocation);
+	    Controller.Pitch = Field.GetPitchValueToward(MyInfo, ballLocation);
+
+	    if (ballLocation.Z < GameValuesService.BallRadius * 3)
+	    {
+		Action = BotAction.Default;
+		Controller.Jump = false;
+		Controller.Boost = false;
+		Controller.Pitch = 0;
+	    }
+	}
+
 	public void TurnAroud()
 	{
 	    Action = BotAction.TurningAround;
@@ -238,6 +257,13 @@ namespace SmileyBot.ApplicationCore.Bots
 	    
             Controller.Steer = Field.GetSteeringValueToward(MyInfo, strikeLocation);
 	    Controller.Throttle = 1;
+
+	    System.Console.WriteLine("StrikeZ: " + strikeLocation.Z);
+	    System.Console.WriteLine("Threshold: " + GameValuesService.BallRadius * 2);
+	    if (strikeLocation.Z >= GameValuesService.BallRadius * 3)
+	    {
+		Aerial();
+	    }
         }
 	
 	public void GoToGoal()
@@ -259,7 +285,7 @@ namespace SmileyBot.ApplicationCore.Bots
 	    var strikeX = Field.BallRadius() * Math.Cos(theta) + ballLocation.X;
 	    var strikeY = Field.BallRadius() * Math.Sin(theta) + ballLocation.Y;
 
-	    return new Vec3((float)strikeX, (float)strikeY, target.Z);
+	    return new Vec3((float)strikeX, (float)strikeY, ballLocation.Z);
 	}
     }
 }

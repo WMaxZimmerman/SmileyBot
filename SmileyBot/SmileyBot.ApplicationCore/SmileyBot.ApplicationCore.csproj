@@ -54,6 +54,7 @@
     <Compile Include="Services\KickoffService.cs" />
     <Compile Include="Services\FieldService.cs" />
     <Compile Include="Services\StateService.cs" />
+    <Compile Include="Services\GameValuesService.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="RLBot.Framework">

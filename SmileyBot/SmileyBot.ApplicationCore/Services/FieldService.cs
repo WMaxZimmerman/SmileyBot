@@ -158,6 +158,29 @@ namespace SmileyBot.ApplicationCore.Services
             // Decide which way to steer in order to get to the ball.
             return (float)carFrontToTargetAngle;
 	}
+	
+	public float GetPitchValueToward(PlayerInfo car, Vec3 targetLocation)
+	{
+            var carLocation = car.Physics.Value.Location.Value;
+            var carRotation = car.Physics.Value.Rotation.Value;
+
+            // Calculate to get the angle from the front of the bot's car to the ball.
+            var carToTargetAngle = Math.Atan2(targetLocation.Y - carLocation.Y, targetLocation.Z - carLocation.Z);
+            var carFrontToTargetAngle = carToTargetAngle - carRotation.Pitch;
+            
+            // Correct the angle
+            if (carFrontToTargetAngle < -Math.PI)
+	    {
+		carFrontToTargetAngle += 2 * Math.PI;
+	    }
+            else if (carFrontToTargetAngle > Math.PI)
+	    {
+		carFrontToTargetAngle -= 2 * Math.PI;
+	    }
+
+            // Decide which way to steer in order to get to the ball.
+            return (float)carFrontToTargetAngle;
+	}
 
 	public bool IsBallOnMySide(BallInfo ball)
 	{
