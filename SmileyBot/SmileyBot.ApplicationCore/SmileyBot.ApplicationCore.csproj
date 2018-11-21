@@ -43,14 +43,17 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Bots\WrapBot.cs" />
+    <Compile Include="Enums\BotState.cs" />
+    <Compile Include="Enums\BotAction.cs" />
+    <Compile Include="Mappers\VectorMapper.cs" />
+    <Compile Include="Models\Vec3.cs" />
+    <Compile Include="Models\Rekt.cs" />
+    <Compile Include="Models\FieldZone.cs" />
     <Compile Include="Services\BallChasingService.cs" />
     <Compile Include="Services\ControlService.cs" />
     <Compile Include="Services\KickoffService.cs" />
     <Compile Include="Services\FieldService.cs" />
     <Compile Include="Services\StateService.cs" />
-    <Compile Include="Enums\BotState.cs" />
-    <Compile Include="Enums\BotAction.cs" />
-    <Compile Include="Models\Vec3.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="RLBot.Framework">

@@ -1,34 +1,59 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using rlbot.flat;
 using RLBotDotNet;
 using SmileyBot.ApplicationCore.Models;
 
 namespace SmileyBot.ApplicationCore.Services
 {
-    public static class FieldService
+    public class FieldService
     {
-        public static Vec3 GetMyGoal(int myTeam)
-	{
-	    var location = new Vec3(0, 0, 0);
-	    location.Y = myTeam == 0 ? -10240 : 10240;
+	private readonly int _team;
 
-	    return location;
+	public List<FieldZone> Zones { get; }
+
+	public FieldService(int team)
+	{
+	    _team = team;
+
+	    Zones = new List<FieldZone>();
+	    for (var i = 1; i < 12; i++)
+	    {
+		Zones.Add(new FieldZone(i, _team));
+	    }	    
 	}
 	
-        public static Vec3 GetEnemyGoal(int myTeam)
+        public Vec3 GetMyGoal()
 	{
 	    var location = new Vec3(0, 0, 0);
-	    location.Y = myTeam != 0 ? -10240 : 10240;
+	    location.Y = _team == 0 ? -5120 : 5120;
 
 	    return location;
 	}
 
-	public static float BallRadius()
+	public bool MoreThanOneZoneAway(Vec3 obj, Vec3 target)
+	{
+	    var objZone = Zones.First(z => z.Rec.IsPointWithin(obj));
+	    var targetZone = Zones.First(z => z.Rec.IsPointWithin(obj));
+
+	    return (objZone.Id != targetZone.Id && objZone.IsTouchingZone(targetZone.Id) == false);
+	}
+	
+        public Vec3 GetEnemyGoal()
+	{
+	    var location = new Vec3(0, 0, 0);
+	    location.Y = _team != 0 ? -5120 : 5120;
+
+	    return location;
+	}
+
+	public float BallRadius()
 	{
 	    return (float)92.75;
 	}
 
-	public static bool CloserToTarget(Vector3 locationA, Vector3 locationB, Vector3 target)
+	public bool CloserToTarget(Vector3 locationA, Vector3 locationB, Vector3 target)
 	{
 	    var aVec3 = new Vec3(locationA.X, locationA.Y, locationA.Z);
 	    var bVec3 = new Vec3(locationB.X, locationB.Y, locationB.Z);
@@ -37,7 +62,7 @@ namespace SmileyBot.ApplicationCore.Services
 	    return CloserToTarget(aVec3, bVec3, tVec3);
 	}
 	
-	public static bool CloserToTarget(Vec3 locationA, Vec3 locationB, Vec3 target)
+	public bool CloserToTarget(Vec3 locationA, Vec3 locationB, Vec3 target)
 	{
 	    var distA = GetDist(locationA, target);
 	    var distB = GetDist(locationB, target);
@@ -45,7 +70,7 @@ namespace SmileyBot.ApplicationCore.Services
 	    return distA > distB;
 	}
 
-	public static double GetDist(Vec3 obj, Vec3 target)
+	public double GetDist(Vec3 obj, Vec3 target)
 	{
 	    var deltaX = (obj.X - target.X);
 	    var deltaY = (obj.Y - target.Y);
@@ -53,16 +78,16 @@ namespace SmileyBot.ApplicationCore.Services
 	    return dist;
 	}
 
-	public static bool BallIsInReach(PlayerInfo car, BallInfo ball)
+	public bool BallIsInReach(PlayerInfo car, BallInfo ball)
 	{
 	    var ballInReach = false;
 	    var ballLocation = ball.Physics?.Location;
 	    var carLocation = car.Physics?.Location;
 
-	    var ballRectX1 = ballLocation.Value.X + (FieldService.BallRadius() * 2);
-	    var ballRectX2 = ballLocation.Value.X - (FieldService.BallRadius() * 2);
-	    var ballRectY1 = ballLocation.Value.Y + (FieldService.BallRadius() * 2);
-	    var ballRectY2 = ballLocation.Value.Y - (FieldService.BallRadius() * 2);
+	    var ballRectX1 = ballLocation.Value.X + (BallRadius() * 2);
+	    var ballRectX2 = ballLocation.Value.X - (BallRadius() * 2);
+	    var ballRectY1 = ballLocation.Value.Y + (BallRadius() * 2);
+	    var ballRectY2 = ballLocation.Value.Y - (BallRadius() * 2);
 
 	    if (carLocation.Value.X <= ballRectX1 && carLocation.Value.X >= ballRectX2)
 	    {
@@ -75,17 +100,17 @@ namespace SmileyBot.ApplicationCore.Services
 	    return ballInReach;
 	}
 
-	public static bool BallInlineWithGoal(PlayerInfo car, BallInfo ball)
+	public bool BallInlineWithGoal(PlayerInfo car, BallInfo ball)
 	{
 	    var ballInlineWithGoal = false;
 	    var ballLocation = ball.Physics?.Location;
 	    var carLocation = car.Physics?.Location;
-	    var enemyGoal = FieldService.GetEnemyGoal(car.Team);
+	    var enemyGoal = GetEnemyGoal();
 
 	    var carToGoalAngle = Math.Atan2(enemyGoal.Y - carLocation.Value.Y, enemyGoal.X - carLocation.Value.X);
 	    var ballToGoalAngle = Math.Atan2(enemyGoal.Y - ballLocation.Value.Y, enemyGoal.X - ballLocation.Value.X);
 
-	    var range = 100;
+	    var range = 45;
 	    
 	    if (ballToGoalAngle <= (carToGoalAngle + range) && ballToGoalAngle >= (carToGoalAngle - range))
 	    {
@@ -105,13 +130,13 @@ namespace SmileyBot.ApplicationCore.Services
 	    return ballInlineWithGoal;
 	}
 
-	public static float GetSteeringValueToward(PlayerInfo car, Vector3 targetLocation)
+	public float GetSteeringValueToward(PlayerInfo car, Vector3 targetLocation)
 	{
 	    var vec3 = new Vec3(targetLocation.X, targetLocation.Y, targetLocation.Z);
             return GetSteeringValueToward(car, vec3);
 	}
 	
-	public static float GetSteeringValueToward(PlayerInfo car, Vec3 targetLocation)
+	public float GetSteeringValueToward(PlayerInfo car, Vec3 targetLocation)
 	{
             var carLocation = car.Physics.Value.Location.Value;
             var carRotation = car.Physics.Value.Rotation.Value;
@@ -132,6 +157,23 @@ namespace SmileyBot.ApplicationCore.Services
 
             // Decide which way to steer in order to get to the ball.
             return (float)carFrontToTargetAngle;
+	}
+
+	public bool IsBallOnMySide(BallInfo ball)
+	{
+	    var ballY = ball.Physics.Value.Location.Value.Y;
+	    var onMySide = false;
+
+	    if (_team == 0)
+	    {
+		if (ballY < 0) onMySide = true;
+	    }
+	    else
+	    {
+		if (ballY > 0) onMySide = true;
+	    }
+
+	    return onMySide;
 	}
     }
 }

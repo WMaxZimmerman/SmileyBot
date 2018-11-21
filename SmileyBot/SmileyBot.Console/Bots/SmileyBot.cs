@@ -30,6 +30,9 @@ namespace SmileyBot.Console.Bots
 		case BotAction.Flipping:
 		    FlipAction();
 		    break;
+		case BotAction.TurningAround:
+		    TurnAroud();
+		    break;
 	    }
 	}
 
@@ -41,11 +44,11 @@ namespace SmileyBot.Console.Bots
 		    PerformKickoff();
 		    break;
 		case BotState.Chasing:
-		    BallChasingService.DribbleBallAtGoal(MyInfo, Ball, ref Controller);
+		    DribbleBallAtGoal();
 		    CheckForShot();
 		    break;
 		case BotState.Defending:
-		    BallChasingService.GoToGoal(MyInfo, ref Controller);
+		    GoToGoal();
 		    break;
 	    }
 	    
@@ -85,10 +88,10 @@ namespace SmileyBot.Console.Bots
 
 	private void CheckForShot()
 	{
-	    if (FieldService.BallIsInReach(MyInfo, Ball) && FieldService.BallInlineWithGoal(MyInfo, Ball))
+	    if (Field.BallIsInReach(MyInfo, Ball) && Field.BallInlineWithGoal(MyInfo, Ball))
 	    {
-		var target = FieldService.GetEnemyGoal(MyInfo.Team);
-		Controller.Steer = FieldService.GetSteeringValueToward(MyInfo, target);
+		var target = Field.GetEnemyGoal();
+		Controller.Steer = Field.GetSteeringValueToward(MyInfo, target);
 		Flip();
 	    }
 	}
