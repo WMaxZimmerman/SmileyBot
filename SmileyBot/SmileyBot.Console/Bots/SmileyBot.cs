@@ -7,6 +7,8 @@ using rlbot.flat;
 using RLBotDotNet;
 using SmileyBot.ApplicationCore.Bots;
 using SmileyBot.ApplicationCore.Enums;
+using SmileyBot.ApplicationCore.Mappers;
+using SmileyBot.ApplicationCore.Models;
 using SmileyBot.ApplicationCore.Services;
 
 namespace SmileyBot.Console.Bots
@@ -53,20 +55,19 @@ namespace SmileyBot.Console.Bots
 		case BotState.Defending:
 		    GoToGoal();
 		    break;
+		case BotState.WaitingForCenter:
+		    GoToZone();
+		    break;
 	    }
 	    
 	    SetDesiredState(gameTickPacket);
 	}
 
 	private void PerformKickoff()
-	{	    
-	    var ballLocation = Ball.Physics.Value.Location.Value;
-	    var carLocation = MyInfo.Physics.Value.Location.Value;
-	    var carRotation = MyInfo.Physics.Value.Rotation.Value;
-
+	{
 	    // Calculate to get the angle from the front of the bot's car to the ball.
-	    var botToTargetAngle = Math.Atan2(ballLocation.Y - carLocation.Y, ballLocation.X - carLocation.X);
-	    var botFrontToTargetAngle = botToTargetAngle - carRotation.Yaw;
+	    var botToTargetAngle = Math.Atan2(Ball.Location.Y - Info.Location.Y, Ball.Location.X - Info.Location.X);
+	    var botFrontToTargetAngle = botToTargetAngle - Info.Rotation.Yaw;
             
 	    // Correct the angle
 	    if (botFrontToTargetAngle < -Math.PI)
@@ -83,7 +84,7 @@ namespace SmileyBot.Console.Bots
 	    Controller.Throttle = 1;
 	    Controller.Boost = true;
 
-	    if (MyInfo.Boost < 1 && MyInfo.Physics?.Velocity?.Y != 0)
+	    if (Info.Boost < 1 && Info.Velocity.Y != 0)
 	    {
 		FlipForward();
 	    }
@@ -91,10 +92,10 @@ namespace SmileyBot.Console.Bots
 
 	private void CheckForShot()
 	{
-	    if (Field.BallIsInReach(MyInfo, Ball) && Field.BallInlineWithGoal(MyInfo, Ball))
+	    if (Field.BallIsInReach(Info, Ball) && Field.BallInlineWithGoal(Info, Ball))
 	    {
 		var target = Field.GetEnemyGoal();
-		Controller.Steer = Field.GetSteeringValueToward(MyInfo, target);
+		Controller.Steer = Field.GetSteeringValueToward(Info, target);
 		Flip();
 	    }
 	}

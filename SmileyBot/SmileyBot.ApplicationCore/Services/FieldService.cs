@@ -53,15 +53,6 @@ namespace SmileyBot.ApplicationCore.Services
 	    return (float)92.75;
 	}
 
-	public bool CloserToTarget(Vector3 locationA, Vector3 locationB, Vector3 target)
-	{
-	    var aVec3 = new Vec3(locationA.X, locationA.Y, locationA.Z);
-	    var bVec3 = new Vec3(locationB.X, locationB.Y, locationB.Z);
-	    var tVec3 = new Vec3(target.X, target.Y, target.Z);
-
-	    return CloserToTarget(aVec3, bVec3, tVec3);
-	}
-	
 	public bool CloserToTarget(Vec3 locationA, Vec3 locationB, Vec3 target)
 	{
 	    var distA = GetDist(locationA, target);
@@ -78,20 +69,17 @@ namespace SmileyBot.ApplicationCore.Services
 	    return dist;
 	}
 
-	public bool BallIsInReach(PlayerInfo car, BallInfo ball)
+	public bool BallIsInReach(PlayerWrapper car, BallWrapper ball)
 	{
 	    var ballInReach = false;
-	    var ballLocation = ball.Physics?.Location;
-	    var carLocation = car.Physics?.Location;
+	    var ballRectX1 = ball.Location.X + (BallRadius() * 2);
+	    var ballRectX2 = ball.Location.X - (BallRadius() * 2);
+	    var ballRectY1 = ball.Location.Y + (BallRadius() * 2);
+	    var ballRectY2 = ball.Location.Y - (BallRadius() * 2);
 
-	    var ballRectX1 = ballLocation.Value.X + (BallRadius() * 2);
-	    var ballRectX2 = ballLocation.Value.X - (BallRadius() * 2);
-	    var ballRectY1 = ballLocation.Value.Y + (BallRadius() * 2);
-	    var ballRectY2 = ballLocation.Value.Y - (BallRadius() * 2);
-
-	    if (carLocation.Value.X <= ballRectX1 && carLocation.Value.X >= ballRectX2)
+	    if (car.Location.X <= ballRectX1 && car.Location.X >= ballRectX2)
 	    {
-		if (carLocation.Value.Y <= ballRectY1 && carLocation.Value.Y >= ballRectY2)
+		if (car.Location.Y <= ballRectY1 && car.Location.Y >= ballRectY2)
 		{
 		    ballInReach = true;
 		}
@@ -100,15 +88,13 @@ namespace SmileyBot.ApplicationCore.Services
 	    return ballInReach;
 	}
 
-	public bool BallInlineWithGoal(PlayerInfo car, BallInfo ball)
+	public bool BallInlineWithGoal(PlayerWrapper car, BallWrapper ball)
 	{
 	    var ballInlineWithGoal = false;
-	    var ballLocation = ball.Physics?.Location;
-	    var carLocation = car.Physics?.Location;
 	    var enemyGoal = GetEnemyGoal();
 
-	    var carToGoalAngle = Math.Atan2(enemyGoal.Y - carLocation.Value.Y, enemyGoal.X - carLocation.Value.X);
-	    var ballToGoalAngle = Math.Atan2(enemyGoal.Y - ballLocation.Value.Y, enemyGoal.X - ballLocation.Value.X);
+	    var carToGoalAngle = Math.Atan2(enemyGoal.Y - car.Location.Y, enemyGoal.X - car.Location.X);
+	    var ballToGoalAngle = Math.Atan2(enemyGoal.Y - ball.Location.Y, enemyGoal.X - ball.Location.X);
 
 	    var range = 45;
 	    
@@ -130,20 +116,11 @@ namespace SmileyBot.ApplicationCore.Services
 	    return ballInlineWithGoal;
 	}
 
-	public float GetSteeringValueToward(PlayerInfo car, Vector3 targetLocation)
+	public float GetSteeringValueToward(PlayerWrapper car, Vec3 targetLocation)
 	{
-	    var vec3 = new Vec3(targetLocation.X, targetLocation.Y, targetLocation.Z);
-            return GetSteeringValueToward(car, vec3);
-	}
-	
-	public float GetSteeringValueToward(PlayerInfo car, Vec3 targetLocation)
-	{
-            var carLocation = car.Physics.Value.Location.Value;
-            var carRotation = car.Physics.Value.Rotation.Value;
-
             // Calculate to get the angle from the front of the bot's car to the ball.
-            var carToTargetAngle = Math.Atan2(targetLocation.Y - carLocation.Y, targetLocation.X - carLocation.X);
-            var carFrontToTargetAngle = carToTargetAngle - carRotation.Yaw;
+            var carToTargetAngle = Math.Atan2(targetLocation.Y - car.Location.Y, targetLocation.X - car.Location.X);
+            var carFrontToTargetAngle = carToTargetAngle - car.Rotation.Yaw;
             
             // Correct the angle
             if (carFrontToTargetAngle < -Math.PI)
@@ -159,14 +136,11 @@ namespace SmileyBot.ApplicationCore.Services
             return (float)carFrontToTargetAngle;
 	}
 	
-	public float GetPitchValueToward(PlayerInfo car, Vec3 targetLocation)
+	public float GetPitchValueToward(PlayerWrapper car, Vec3 targetLocation)
 	{
-            var carLocation = car.Physics.Value.Location.Value;
-            var carRotation = car.Physics.Value.Rotation.Value;
-
             // Calculate to get the angle from the front of the bot's car to the ball.
-            var carToTargetAngle = Math.Atan2(targetLocation.Y - carLocation.Y, targetLocation.Z - carLocation.Z);
-            var carFrontToTargetAngle = carToTargetAngle - carRotation.Pitch;
+            var carToTargetAngle = Math.Atan2(targetLocation.Y - car.Location.Y, targetLocation.Z - car.Location.Z);
+            var carFrontToTargetAngle = carToTargetAngle - car.Rotation.Pitch;
             
             // Correct the angle
             if (carFrontToTargetAngle < -Math.PI)
@@ -182,9 +156,9 @@ namespace SmileyBot.ApplicationCore.Services
             return (float)carFrontToTargetAngle;
 	}
 
-	public bool IsBallOnMySide(BallInfo ball)
+	public bool IsBallOnMySide(BallWrapper ball)
 	{
-	    var ballY = ball.Physics.Value.Location.Value.Y;
+	    var ballY = ball.Location.Y;
 	    var onMySide = false;
 
 	    if (_team == 0)

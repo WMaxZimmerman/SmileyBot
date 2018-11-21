@@ -17,9 +17,9 @@ namespace SmileyBot.ApplicationCore.Bots
 	public BotState State;
 	public BotAction Action;
 	public Controller Controller;
-	public BallInfo Ball;
-	public PlayerInfo MyInfo;
-	public GameInfo Game;
+	public BallWrapper Ball;
+	public PlayerWrapper Info;
+	public GameWrapper Game;
 	public FieldService Field;
 	
 	// Shit Just For Flipping
@@ -28,6 +28,12 @@ namespace SmileyBot.ApplicationCore.Bots
 	protected bool Flipping = false;
 	protected bool SpecificFlipDirection = true;
 	protected float FlipDirection = 0;
+
+	// Shit Just For Truning Around
+	protected Vec3 TurnTarget = null;
+
+	// Misc
+	protected FieldZone TargetZone = null;
 	
         public WrapBot(string botName, int botTeam, int botIndex) : base(botName, botTeam, botIndex)
         {
@@ -35,6 +41,9 @@ namespace SmileyBot.ApplicationCore.Bots
 	    Action = BotAction.Default;
 	    Controller = new Controller();
 	    Field = new FieldService(botTeam);
+	    Ball = new BallWrapper();
+	    Info = new PlayerWrapper();
+	    Game = new GameWrapper();
         }
 
         public override Controller GetOutput(GameTickPacket gameTickPacket)
@@ -42,9 +51,9 @@ namespace SmileyBot.ApplicationCore.Bots
             try
             {
 		//Set Reused Values
-		Ball = gameTickPacket.Ball.Value;
-		MyInfo = gameTickPacket.Players(this.index).Value;
-		Game = gameTickPacket.GameInfo.Value;
+		Ball.UpdateInfo(gameTickPacket.Ball);
+		Info.UpdateInfo(gameTickPacket.Players(this.index).Value);
+		Game.UpdateInfo(gameTickPacket.GameInfo.Value);
 
 		//Perform Bot Updates
 		Update(gameTickPacket);
@@ -63,10 +72,7 @@ namespace SmileyBot.ApplicationCore.Bots
 	}
 
 	protected void SetDesiredState(GameTickPacket gameTickPacket)	
-	{
-	    var ballLocation = Ball.Physics?.Location;
-	    var myLocation = MyInfo.Physics?.Location;
-	    
+	{	    
 	    if (State != BotState.Kickoff)
 	    {
 		if (ShouldChangeToKickoff())
@@ -76,28 +82,32 @@ namespace SmileyBot.ApplicationCore.Bots
 		    return;
 		}
 
-		if (State == BotState.Chasing)
+		if (ShouldChangeToChasing() && State != BotState.Chasing)
 		{
-		    if (ShouldChangeToDefending())
-		    {
-			SendQuickChatFromAgent(false, QuickChatSelection.Information_Defending);
-			State = BotState.Defending;
-			return;
-		    }
+		    SendQuickChatFromAgent(false, QuickChatSelection.Information_IGotIt);
+		    TurnAroud();
+		    State = BotState.Chasing;
 		}
-		else if (State == BotState.Defending)
+		else if (ShouldChangeToDefending() && State != BotState.Defending)
 		{
-		    if (ShouldChangeToChasing())
-		    {
-			SendQuickChatFromAgent(false, QuickChatSelection.Information_IGotIt);
-			TurnAroud();
-			State = BotState.Chasing;
-		    }
+		    SendQuickChatFromAgent(false, QuickChatSelection.Information_Defending);
+		    State = BotState.Defending;
+		    return;
+		}
+		else if (ShouldChangeToWaitingForCenter() && State != BotState.WaitingForCenter)
+		{
+		    SendQuickChatFromAgent(false, QuickChatSelection.Information_InPosition);
+		    var enemyGoalZone = Field.Zones.First(z => z.IsMySide == false && z.HasGoal);
+		    var targetZoneId = enemyGoalZone.Id > 6 ? enemyGoalZone.Id - 3 : enemyGoalZone.Id + 3;
+		    TargetZone = Field.Zones.First(z => z.Id == targetZoneId);
+		    TurnTarget = TargetZone.Rec.Center();
+		    TurnAroud();
+		    State = BotState.Chasing;
 		}
 	    }
 	    else
 	    {
-		if (ballLocation != null && (ballLocation.Value.X != 0 || ballLocation.Value.Y != 0))
+		if (Ball.Location != null && (Ball.Location.X != 0 || Ball.Location.Y != 0))
 		{
 		    SendQuickChatFromAgent(false, QuickChatSelection.Information_IGotIt);
 		    State = BotState.Chasing;
@@ -107,20 +117,37 @@ namespace SmileyBot.ApplicationCore.Bots
 	
 	protected virtual bool ShouldChangeToKickoff()
 	{
-	    return Game.IsKickoffPause;
+	    return Game.IsKickoff;
+	}
+
+	protected virtual bool ShouldChangeToWaitingForCenter()
+	{
+	    var shouldSwitch = false;
+	    var goalLocation = Field.GetEnemyGoal();
+	    var ballZone = Field.Zones.FirstOrDefault(z => z.Rec.IsPointWithin(Ball.Location));
+	    
+	    if (ballZone != null && ballZone.IsMySide == false && ballZone.IsCornder)
+	    {
+		var projectedY = goalLocation.Y - (Ball.Velocity.Y + Ball.Location.Y);
+		var projectedX = goalLocation.X - (Ball.Velocity.X + Ball.Location.X);
+		if (projectedY > Ball.Location.Y || projectedX > Ball.Location.X)
+		{
+		    shouldSwitch = true;
+		}
+	    }
+	    
+	    return shouldSwitch;
 	}
 
 	protected virtual bool ShouldChangeToDefending()
 	{
 	    var shouldSwitch = false;
 	    var goalLocation = Field.GetMyGoal();
-	    var ballLocation = VectorMapper.Map(Ball.Physics.Value.Location.Value);
-	    var carLocation = VectorMapper.Map(MyInfo.Physics.Value.Location.Value);
-	    var ballDistToGoal = Field.GetDist(ballLocation, goalLocation);
+	    var ballDistToGoal = Field.GetDist(Ball.Location, goalLocation);
 
 	    if (Field.IsBallOnMySide(Ball))
 	    {
-		if (Field.CloserToTarget(carLocation, ballLocation, goalLocation))
+		if (Field.CloserToTarget(Info.Location, Ball.Location, goalLocation))
 		{
 		    shouldSwitch = true;
 		}
@@ -132,15 +159,25 @@ namespace SmileyBot.ApplicationCore.Bots
 	protected virtual bool ShouldChangeToChasing()
 	{
 	    var shouldSwitch = false;
-	    var carLocation = VectorMapper.Map(MyInfo.Physics.Value.Location.Value);
-	    var ballLocation = VectorMapper.Map(Ball.Physics.Value.Location.Value);
-	    var goalLocation = Field.GetMyGoal();
-	    var carDistToGoal = Field.GetDist(carLocation, goalLocation);
-	    var currentZone = Field.Zones.First(z => z.Rec.IsPointWithin(carLocation));
+	    var myGoalLocation = Field.GetMyGoal();
+	    var enemyGoalLocation = Field.GetEnemyGoal();
 
-	    if ((currentZone.IsMySide && currentZone.HasGoal) || Field.MoreThanOneZoneAway(carLocation, ballLocation))
+	    if (State == BotState.Defending)
 	    {
-		shouldSwitch = true;
+		var carDistToGoal = Field.GetDist(Info.Location, myGoalLocation);
+		var currentZone = Field.Zones.FirstOrDefault(z => z.Rec.IsPointWithin(Info.Location));
+
+		if (currentZone != null && ((currentZone.IsMySide && currentZone.HasGoal) || Field.MoreThanOneZoneAway(Info.Location, Ball.Location)))
+		{
+		    shouldSwitch = true;
+		}
+	    }
+	    else if (State == BotState.WaitingForCenter)
+	    {
+		if (Ball.Location.X >= -893 && Ball.Location.X <= 893)
+		{
+		    shouldSwitch = true;
+		}
 	    }
 
 	    return shouldSwitch;
@@ -148,15 +185,13 @@ namespace SmileyBot.ApplicationCore.Bots
 
 	public void Aerial()
 	{
-	    //System.Console.WriteLine("Aerial");
-	    var ballLocation = VectorMapper.Map(Ball.Physics.Value.Location.Value);
 	    Action = BotAction.Aerial;
 	    Controller.Jump = true;
 	    Controller.Boost = true;
-	    Controller.Steer = Field.GetSteeringValueToward(MyInfo, ballLocation);
-	    Controller.Pitch = Field.GetPitchValueToward(MyInfo, ballLocation);
+	    Controller.Steer = Field.GetSteeringValueToward(Info, Ball.Location);
+	    Controller.Pitch = Field.GetPitchValueToward(Info, Ball.Location);
 
-	    if (ballLocation.Z < GameValuesService.BallRadius * 3)
+	    if (Ball.Location.Z < GameValuesService.BallRadius * 3)
 	    {
 		Action = BotAction.Default;
 		Controller.Jump = false;
@@ -168,15 +203,18 @@ namespace SmileyBot.ApplicationCore.Bots
 	public void TurnAroud()
 	{
 	    Action = BotAction.TurningAround;
-	    var carLocation = VectorMapper.Map(MyInfo.Physics.Value.Location.Value);
-	    var ballLocation = VectorMapper.Map(Ball.Physics.Value.Location.Value);
-	    var steerValue = Field.GetSteeringValueToward(MyInfo, ballLocation);
+
+	    var target = TurnTarget;
+	    if (target == null) target = Ball.Location;
+	    
+	    var steerValue = Field.GetSteeringValueToward(Info, target);
 	    Controller.Steer = steerValue;
 	    Controller.Handbrake = true;
 
-	    var range = .25;
+	    var range = .33;
 	    if (steerValue <= 0 + range && steerValue >= 0 - range)
 	    {
+		TurnTarget = null;
 		Action = BotAction.Default;
 		Controller.Handbrake = false;
 	    }
@@ -205,7 +243,7 @@ namespace SmileyBot.ApplicationCore.Bots
 	    if (JustDoubleJumped)
 	    {
 		Controller.Jump = false;
-		if (MyInfo.HasWheelContact)
+		if (Info.HasWheelContact)
 		{
 		    JustDoubleJumped = false;
 		    Controller.Pitch = 0;
@@ -244,9 +282,7 @@ namespace SmileyBot.ApplicationCore.Bots
 
 	public void GetSteeringValueToChaseBall()
         {
-            var ballLocation = Ball.Physics.Value.Location.Value;
-
-	    Controller.Steer = Field.GetSteeringValueToward(MyInfo, ballLocation);
+            Controller.Steer = Field.GetSteeringValueToward(Info, Ball.Location);
 	    Controller.Throttle = 1;
         }
 
@@ -255,14 +291,24 @@ namespace SmileyBot.ApplicationCore.Bots
 	    var enemyGoal = Field.GetEnemyGoal();
 	    var strikeLocation = GetStrikeLocation(Ball, enemyGoal);
 	    
-            Controller.Steer = Field.GetSteeringValueToward(MyInfo, strikeLocation);
+            Controller.Steer = Field.GetSteeringValueToward(Info, strikeLocation);
 	    Controller.Throttle = 1;
 
-	    System.Console.WriteLine("StrikeZ: " + strikeLocation.Z);
-	    System.Console.WriteLine("Threshold: " + GameValuesService.BallRadius * 2);
 	    if (strikeLocation.Z >= GameValuesService.BallRadius * 3)
 	    {
-		Aerial();
+		//Aerial();
+	    }
+        }
+	
+	public void GoToZone()
+        {
+	    Controller.Steer = Field.GetSteeringValueToward(Info, TargetZone.Rec.Center());
+	    Controller.Throttle = 1;
+
+	    var currentZone = Field.Zones.First(z => z.Rec.IsPointWithin(Info.Location));
+	    if (currentZone.Id == TargetZone.Id)
+	    {
+		Controller.Throttle = .1f;
 	    }
         }
 	
@@ -270,22 +316,55 @@ namespace SmileyBot.ApplicationCore.Bots
         {
 	    var myGoal = Field.GetMyGoal();	    
 
-	    Controller.Steer = Field.GetSteeringValueToward(MyInfo, myGoal);
+	    Controller.Steer = Field.GetSteeringValueToward(Info, myGoal);
 	    Controller.Throttle = 1;
         }
 
-	public Vec3 GetStrikeLocation(BallInfo ball, Vec3 target)
+	public Vec3 GetStrikeLocation(BallWrapper ball, Vec3 target)
 	{
-	    var ballLocation = VectorMapper.Map(ball.Physics.Value.Location.Value);
-	    var hyotenuse = Field.GetDist(ballLocation, target);
-	    var opposite = Math.Abs((ballLocation.X - target.X));
+	    var hyotenuse = Field.GetDist(ball.Location, target);
+	    var opposite = Math.Abs((ball.Location.X - target.X));
 	    var theta = Math.Asin(opposite/hyotenuse);
 	    var newHypotenuse = Field.BallRadius() + hyotenuse;
 
-	    var strikeX = Field.BallRadius() * Math.Cos(theta) + ballLocation.X;
-	    var strikeY = Field.BallRadius() * Math.Sin(theta) + ballLocation.Y;
+	    var strikeX = Field.BallRadius() * Math.Cos(theta) + ball.Location.X;
+	    var strikeY = Field.BallRadius() * Math.Sin(theta) + ball.Location.Y;
 
-	    return new Vec3((float)strikeX, (float)strikeY, ballLocation.Z);
+	    strikeX += ball.Velocity.X;
+	    strikeY += ball.Velocity.Y;
+
+	    return new Vec3((float)strikeX, (float)strikeY, ball.Location.Z);
+	}
+
+	protected Vec3 GetProjectedBallPath()
+	{
+	    var prediction = GetBallPrediction();
+	    Vec3 target = null;
+	    
+	    for (int i = 1; i < prediction.SlicesLength; i++)
+	    {
+		var slice = prediction.Slices(i).Value;
+		if (CanReachPositionInTime(slice))
+		{
+		    return VectorMapper.Map(slice.Physics.Value.Location.Value);
+		}
+
+		target = VectorMapper.Map(slice.Physics.Value.Location.Value);
+	    }
+
+	    return target;
+	}
+
+	protected bool CanReachPositionInTime(PredictionSlice slice)
+	{
+	    var sliceTime = slice.GameSeconds;
+	    var sliceLocation = VectorMapper.Map(slice.Physics.Value.Location.Value);
+	    var currTime = Game.TimeElapsed;
+	    var deltaTime = sliceTime - currTime;
+	    var dist = Field.GetDist(Info.Location, sliceLocation);
+	    var speed = dist / deltaTime;
+
+	    return speed < GameValuesService.MaxSpeedNoBoost / 2;
 	}
     }
 }

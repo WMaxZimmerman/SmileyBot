@@ -4,6 +4,7 @@ namespace SmileyBot.ApplicationCore.Enums
     {
 	Chasing,
 	Kickoff,
+	WaitingForCenter,
 	Centering,
 	Shadowing,
 	Shooting,

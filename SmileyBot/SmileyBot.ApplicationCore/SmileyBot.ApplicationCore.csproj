@@ -49,6 +49,9 @@
     <Compile Include="Models\Vec3.cs" />
     <Compile Include="Models\Rekt.cs" />
     <Compile Include="Models\FieldZone.cs" />
+    <Compile Include="Models\BallWrapper.cs" />
+    <Compile Include="Models\PlayerWrapper.cs" />
+    <Compile Include="Models\GameWrapper.cs" />
     <Compile Include="Services\BallChasingService.cs" />
     <Compile Include="Services\ControlService.cs" />
     <Compile Include="Services\KickoffService.cs" />
