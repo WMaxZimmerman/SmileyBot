@@ -15,6 +15,7 @@ namespace SmileyBot.ApplicationCore.Bots
     public class WrapBot: Bot
     {
 	public BotState State;
+	public BotState? DesiredState;
 	public BotAction Action;
 	public Controller Controller;
 	public BallWrapper Ball;
@@ -44,6 +45,7 @@ namespace SmileyBot.ApplicationCore.Bots
 	    Ball = new BallWrapper();
 	    Info = new PlayerWrapper();
 	    Game = new GameWrapper();
+	    DesiredState = null;
         }
 
         public override Controller GetOutput(GameTickPacket gameTickPacket)
@@ -54,7 +56,7 @@ namespace SmileyBot.ApplicationCore.Bots
 		Ball.UpdateInfo(gameTickPacket.Ball);
 		Info.UpdateInfo(gameTickPacket.Players(this.index).Value);
 		Game.UpdateInfo(gameTickPacket.GameInfo.Value);
-
+		
 		//Perform Bot Updates
 		Update(gameTickPacket);
             }
@@ -72,7 +74,14 @@ namespace SmileyBot.ApplicationCore.Bots
 	}
 
 	protected void SetDesiredState(GameTickPacket gameTickPacket)	
-	{	    
+	{
+	    if (DesiredState != null)
+	    {
+		State = DesiredState.Value;
+		DesiredState = null;
+		return;
+	    }
+	    
 	    if (State != BotState.Kickoff)
 	    {
 		if (ShouldChangeToKickoff())
@@ -128,9 +137,7 @@ namespace SmileyBot.ApplicationCore.Bots
 	    
 	    if (ballZone != null && ballZone.IsMySide == false && ballZone.IsCornder)
 	    {
-		var projectedY = goalLocation.Y - (Ball.Velocity.Y + Ball.Location.Y);
-		var projectedX = goalLocation.X - (Ball.Velocity.X + Ball.Location.X);
-		if (projectedY > Ball.Location.Y || projectedX > Ball.Location.X)
+		if (Field.TowardMySide(Ball) == false)
 		{
 		    shouldSwitch = true;
 		}
@@ -292,7 +299,38 @@ namespace SmileyBot.ApplicationCore.Bots
 	    var strikeLocation = GetStrikeLocation(Ball, enemyGoal);
 	    
             Controller.Steer = Field.GetSteeringValueToward(Info, strikeLocation);
-	    Controller.Throttle = 1;
+	    TurnTarget = Ball.Location;
+	    // Controller.Throttle = 1;
+
+	    var velocity = Info.GetForwardVelocity();
+	    var turnRadius = GameValuesService.TurnRadius(velocity);
+	    // var threshold = 400;
+	    var dist = Field.GetDist(Info.Location, Ball.Location);
+
+	    if (Controller.Steer < .5 && Controller.Steer > -.5)
+	    {
+		SpeedUp();
+	    }
+	    else if (Controller.Steer > 1 || Controller.Steer < -1)
+	    {
+		SlowDown();
+	    }
+	    else if (Controller.Steer > 2.5 || Controller.Steer < -2.5)
+	    {
+		TurnAroud();
+	    }
+	    else
+	    {
+		Controller.Throttle = 1;
+		Controller.Boost = false;
+	    }
+	    
+	    // System.Console.WriteLine($"===========================");
+	    // System.Console.WriteLine($"Ball Dist: {dist}");
+	    // System.Console.WriteLine($"Steer: {Controller.Steer}");
+	    // System.Console.WriteLine($"Trun Radius: {turnRadius}");
+	    // System.Console.WriteLine($"Throttle: {Controller.Throttle}");
+	    // System.Console.WriteLine($"===========================");
 
 	    if (strikeLocation.Z >= GameValuesService.BallRadius * 3)
 	    {
@@ -320,51 +358,107 @@ namespace SmileyBot.ApplicationCore.Bots
 	    Controller.Throttle = 1;
         }
 
-	public Vec3 GetStrikeLocation(BallWrapper ball, Vec3 target)
+	public Vec3 GetStrikeLocation(BallWrapper ballWrappper, Vec3 target)
 	{
+	    var ball = GetProjectedBall();
+	    // var ball = ballWrappper;
+	    if (ball == null) return new Vec3(0,0,0);
+	    
+	    // var opposite = Math.Abs((ball.Location.X - target.X));
 	    var hyotenuse = Field.GetDist(ball.Location, target);
-	    var opposite = Math.Abs((ball.Location.X - target.X));
+	    var opposite = ball.Location.X - target.X;
 	    var theta = Math.Asin(opposite/hyotenuse);
-	    var newHypotenuse = Field.BallRadius() + hyotenuse;
+	    var newHypotenuse = GameValuesService.BallRadius + hyotenuse;
 
-	    var strikeX = Field.BallRadius() * Math.Cos(theta) + ball.Location.X;
-	    var strikeY = Field.BallRadius() * Math.Sin(theta) + ball.Location.Y;
+	    var strikeX = GameValuesService.BallRadius * Math.Cos(theta) + ball.Location.X;
+	    var strikeY = GameValuesService.BallRadius * Math.Sin(theta) + ball.Location.Y;
 
 	    strikeX += ball.Velocity.X;
 	    strikeY += ball.Velocity.Y;
 
-	    return new Vec3((float)strikeX, (float)strikeY, ball.Location.Z);
+	    var strikeLocation = new Vec3((float)strikeX, (float)strikeY, ball.Location.Z);
+
+	    System.Console.WriteLine($"===========================");
+	    System.Console.WriteLine($"Actual: ({Ball.Location.X}, {Ball.Location.Y}, {Ball.Location.Z})");
+	    System.Console.WriteLine($"Predicted: ({ball.Location.X}, {ball.Location.Y}, {ball.Location.Z})");
+	    System.Console.WriteLine($"DeltaTime: {ball.DeltaTime}");
+	    System.Console.WriteLine($"GameTime: {ball.GameTime}");
+	    System.Console.WriteLine($"ActualTime: {Game.TimeElapsed}");
+	    System.Console.WriteLine($"===========================");
+	    
+	    return strikeLocation;
 	}
 
-	protected Vec3 GetProjectedBallPath()
+	protected LocationPrediction GetProjectedBall()
 	{
-	    var prediction = GetBallPrediction();
-	    Vec3 target = null;
-	    
-	    for (int i = 1; i < prediction.SlicesLength; i++)
+	    var predictions = BallPredictionService.GetPredictions(Ball, Field, Game);
+	    LocationPrediction target = null;
+
+	    foreach (var prediction in predictions)
 	    {
-		var slice = prediction.Slices(i).Value;
-		if (CanReachPositionInTime(slice))
+		if (CanReachPositionInTime(prediction))
 		{
-		    return VectorMapper.Map(slice.Physics.Value.Location.Value);
+		    return prediction;
 		}
 
-		target = VectorMapper.Map(slice.Physics.Value.Location.Value);
+		target = prediction;
 	    }
 
 	    return target;
 	}
 
-	protected bool CanReachPositionInTime(PredictionSlice slice)
+	protected bool CanReachPositionInTime(LocationPrediction slice)
 	{
-	    var sliceTime = slice.GameSeconds;
-	    var sliceLocation = VectorMapper.Map(slice.Physics.Value.Location.Value);
-	    var currTime = Game.TimeElapsed;
-	    var deltaTime = sliceTime - currTime;
-	    var dist = Field.GetDist(Info.Location, sliceLocation);
-	    var speed = dist / deltaTime;
+	    var dist = Field.GetDist(Info.Location, slice.Location);
+	    var speed = dist / slice.DeltaTime;
 
-	    return speed < GameValuesService.MaxSpeedNoBoost / 2;
+	    var currentSpeed = (float)Math.Sqrt((Math.Pow(Info.Velocity.X, 2) + Math.Pow(Info.Velocity.Y, 2)));
+
+	    return speed < currentSpeed;
+	}
+
+	protected void SpeedUp()
+	{
+	    if (Controller.Throttle == 1)
+	    {
+		if (Info.Boost > 0)
+		{
+		    Controller.Boost = true;
+		}
+		else
+		{
+		    var distToTarget = Field.GetDist(Info.Location, TurnTarget);
+		    if (distToTarget > 400 && (Controller.Steer < .1 && Controller.Steer > -.1))
+		    {
+			Flip();
+		    }
+		}
+	    }
+	    else
+	    {
+		Controller.Throttle += .1f;
+		if (Controller.Throttle > 1) Controller.Throttle = 1;
+	    }
+
+	    if (Info.IsSuperSonic)
+	    {
+		Controller.Boost = false;
+	    }
+	}
+
+	protected void SlowDown()
+	{
+	    //Controller.Throttle = 0;
+	    return;
+	    if (Controller.Boost == true)
+	    {
+		Controller.Boost = false;
+	    }
+	    else
+	    {
+		Controller.Throttle -= .1f;
+		if (Controller.Throttle < -1) Controller.Throttle = -1;
+	    }
 	}
     }
 }

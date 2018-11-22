@@ -172,5 +172,21 @@ namespace SmileyBot.ApplicationCore.Services
 
 	    return onMySide;
 	}
+
+	public bool TowardMySide(BallWrapper ball)
+	{
+	    var towardMySide = false;
+	    
+	    if (_team == 0)
+	    {
+		if (ball.Velocity.Y < 0) towardMySide = true;
+	    }
+	    else
+	    {
+		if (ball.Velocity.Y > 0) towardMySide = true;
+	    }
+
+	    return towardMySide;
+	}
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using rlbot.flat;
 using SmileyBot.ApplicationCore.Mappers;
 
@@ -57,6 +58,13 @@ namespace SmileyBot.ApplicationCore.Models
 	    Team = Info.Team;
 
 	    if (Info.ScoreInfo != null) Score = Info.ScoreInfo.Value;
+	}
+
+	public float GetForwardVelocity()
+	{
+	    var velocity = Math.Sqrt(Math.Pow(Velocity.X, 2) + Math.Pow(Velocity.Y, 2));
+	    
+	    return (float)velocity;
 	}
     }
 }

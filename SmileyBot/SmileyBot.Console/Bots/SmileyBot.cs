@@ -56,11 +56,33 @@ namespace SmileyBot.Console.Bots
 		    GoToGoal();
 		    break;
 		case BotState.WaitingForCenter:
-		    GoToZone();
+		    WaitForCenter();
 		    break;
 	    }
 	    
 	    SetDesiredState(gameTickPacket);
+	}
+
+	private void WaitForCenter()
+	{
+	    var currentZone = Field.Zones.FirstOrDefault(z => z.Rec.IsPointWithin(Info.Location));
+	    if (currentZone == null) return;
+	    if (currentZone.Id == TargetZone.Id)
+	    {
+		var ballZone = Field.Zones.FirstOrDefault(z => z.Rec.IsPointWithin(Ball.Location));
+		if (ballZone != null && ballZone.HasGoal)
+		{
+		    DesiredState = BotState.Chasing;
+		}
+		else if (Field.TowardMySide(Ball))
+		{
+		    DesiredState = BotState.Defending;
+		}
+	    }
+	    else
+	    {
+		GoToZone();	
+	    }
 	}
 
 	private void PerformKickoff()

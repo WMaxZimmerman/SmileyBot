@@ -9,15 +9,15 @@ namespace SmileyBot.ApplicationCore.Services
 	public static float Ceiling => 2044;
 	public static float GoalHeight => 642.775f;
 	public static float GoalWidth => 1786;
-	//public static float BallRadius => 92.75f;
-	public static float BallRadius => 327.5139f;
+	public static float BallRadius => 92.75f;
+	//public static float BallRadius => 327.5139f;
 	public static float Gravity => 650;
 	public static float MaxSpeed => 2300;
 	public static float MaxSpeedNoBoost => 1400;
 
 	public static float TurnRadius(float v)
 	{
-	    return Curvature(v);
+	    return v == 0 ? v : 1 / Curvature(v);
 	}
 	
 	private static float Curvature(float v)

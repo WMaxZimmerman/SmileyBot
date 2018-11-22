@@ -52,12 +52,14 @@
     <Compile Include="Models\BallWrapper.cs" />
     <Compile Include="Models\PlayerWrapper.cs" />
     <Compile Include="Models\GameWrapper.cs" />
+    <Compile Include="Models\LocationPrediction.cs" />
     <Compile Include="Services\BallChasingService.cs" />
     <Compile Include="Services\ControlService.cs" />
     <Compile Include="Services\KickoffService.cs" />
     <Compile Include="Services\FieldService.cs" />
     <Compile Include="Services\StateService.cs" />
     <Compile Include="Services\GameValuesService.cs" />
+    <Compile Include="Services\BallPredictionService.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="RLBot.Framework">
