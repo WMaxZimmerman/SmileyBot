@@ -1,15 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using rlbot.flat;
 using RLBotDotNet;
 using SmileyBot.ApplicationCore.Bots;
 using SmileyBot.ApplicationCore.Enums;
-using SmileyBot.ApplicationCore.Mappers;
-using SmileyBot.ApplicationCore.Models;
-using SmileyBot.ApplicationCore.Services;
 
 namespace SmileyBot.Console.Bots
 {

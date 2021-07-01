@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmileyBot.DAL\SmileyBot.DAL.csproj" />
+    <ProjectReference Include="..\SmileyBot.Shared\SmileyBot.Shared.csproj" />
   </ItemGroup>
 
 </Project>

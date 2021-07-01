@@ -1,6 +1,4 @@
 ﻿using RLBotDotNet;
-using System.IO;
-using SmileyBot.Console.Bots;
 
 namespace SmileyBot.Console
 {

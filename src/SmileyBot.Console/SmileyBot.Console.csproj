@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmileyBot.ApplicationCore\SmileyBot.ApplicationCore.csproj" />
+    <ProjectReference Include="..\SmileyBot.Shared\SmileyBot.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
